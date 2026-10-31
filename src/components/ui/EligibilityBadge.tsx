@@ -9,21 +9,21 @@ export function EligibilityBadge({ status }: { status: EligibilityStatus }) {
     case "ELIGIBLE":
       return (
         <Badge variant="success" className="px-2.5 py-1">
-          <CheckCircle className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+          <CheckCircle className="w-3.5 h-3.5 mr-1 text-emerald-400" />
           Eligible to Apply
         </Badge>
       );
     case "NOT_ELIGIBLE":
       return (
         <Badge variant="error" className="px-2.5 py-1">
-          <XCircle className="w-3.5 h-3.5 mr-1 text-rose-600" />
+          <XCircle className="w-3.5 h-3.5 mr-1 text-rose-400" />
           Criteria Not Met
         </Badge>
       );
     case "INCOMPLETE_PROFILE":
       return (
         <Badge variant="warning" className="px-2.5 py-1">
-          <HelpCircle className="w-3.5 h-3.5 mr-1 text-amber-600" />
+          <HelpCircle className="w-3.5 h-3.5 mr-1 text-amber-300" />
           Profile Incomplete
         </Badge>
       );

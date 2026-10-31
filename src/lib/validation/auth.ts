@@ -8,6 +8,7 @@ export const signInSchema = z.object({
     .email("Please provide a valid email address")
     .toLowerCase(),
   password: z.string().min(1, "Password is required"),
+  intendedRole: z.enum(["STUDENT", "ADMIN"]).optional(),
 });
 
 export type SignInInput = z.infer<typeof signInSchema>;

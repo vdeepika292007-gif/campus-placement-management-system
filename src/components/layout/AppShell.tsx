@@ -19,7 +19,7 @@ export function AppShell({ user, unreadCount = 0, children }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-[#090d16] text-slate-100">
       {/* Sidebar Navigation */}
       <Sidebar
         role={user.role}

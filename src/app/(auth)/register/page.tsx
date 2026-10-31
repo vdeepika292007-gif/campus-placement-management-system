@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { GraduationCap, AlertCircle, CheckCircle2 } from "lucide-react";
+import { GraduationCap, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -85,28 +85,31 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-xl">
+    <div className="flex min-h-screen bg-[#090d16] items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden">
+      {/* Background ambient lighting */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none" />
+
+      <div className="w-full max-w-xl z-10">
         {/* Header */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2.5 mb-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-md shadow-blue-500/25">
+          <Link href="/" className="inline-flex items-center gap-2.5 mb-3 group">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/30 group-hover:scale-105 transition-transform">
               <GraduationCap className="h-7 w-7" />
             </div>
           </Link>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
             Student Registration
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-sm mx-auto">
             Create your placement account to discover drives and submit applications
           </p>
         </div>
 
         {/* Registration Card */}
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-sm">
+        <div className="rounded-2xl border border-[#1e2d4a] bg-[#0e1628]/95 p-6 sm:p-8 shadow-2xl backdrop-blur-md">
           {errorMessage && (
-            <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3.5 text-xs text-red-700 flex items-start gap-2.5">
-              <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
+            <div className="mb-5 rounded-xl border border-rose-500/30 bg-rose-950/40 p-3.5 text-xs text-rose-300 flex items-start gap-2.5">
+              <AlertCircle className="h-4 w-4 shrink-0 text-rose-400 mt-0.5" />
               <span>{errorMessage}</span>
             </div>
           )}
@@ -203,8 +206,8 @@ export default function RegisterPage() {
               />
             </div>
 
-            <div className="rounded-lg bg-blue-50/70 p-3 text-xs text-blue-800 flex items-start gap-2 border border-blue-100">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-blue-600 mt-0.5" />
+            <div className="rounded-xl bg-blue-950/40 p-3.5 text-xs text-blue-300 flex items-start gap-2.5 border border-blue-800/40">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-blue-400 mt-0.5" />
               <span>
                 By registering, you confirm that your academic details will be verified by the placement administration.
               </span>
@@ -214,18 +217,22 @@ export default function RegisterPage() {
               type="submit"
               variant="primary"
               size="lg"
-              className="w-full mt-2 font-semibold"
+              className="w-full mt-2 font-bold shadow-lg shadow-blue-600/25"
               isLoading={isLoading}
             >
-              Complete Registration
+              <span>Complete Registration</span>
+              <ArrowRight className="h-4 w-4 ml-1.5" />
             </Button>
           </form>
         </div>
 
         {/* Footer */}
-        <p className="mt-6 text-center text-xs text-slate-600">
+        <p className="mt-6 text-center text-xs text-slate-400">
           Already registered?{" "}
-          <Link href="/sign-in" className="font-semibold text-blue-600 hover:text-blue-700">
+          <Link
+            href="/sign-in"
+            className="font-semibold text-blue-400 hover:text-blue-300 underline underline-offset-4"
+          >
             Sign in here
           </Link>
         </p>
