@@ -1,0 +1,236 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  PENDING
+  SUSPENDED
+}
+
+enum DriveStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  ARCHIVED
+}
+
+enum RoundType {
+  ONLINE_ASSESSMENT
+  TECHNICAL_INTERVIEW
+  HR_INTERVIEW
+  GROUP_DISCUSSION
+  OTHER
+}
+
+enum ApplicationStatus {
+  APPLIED
+  UNDER_REVIEW
+  SHORTLISTED
+  ASSESSMENT_SCHEDULED
+  INTERVIEW_SCHEDULED
+  SELECTED
+  REJECTED
+  WITHDRAWN
+  OFFER_RECORDED
+}
+
+enum RoundOutcome {
+  PENDING
+  SHORTLISTED
+  CLEARED
+  REJECTED
+  ABSENT
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ALERT
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  passwordHash  String
+  role          Role           @default(STUDENT)
+  accountStatus AccountStatus  @default(ACTIVE)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  studentProfile StudentProfile?
+  applications   Application[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model StudentProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentNumber   String?
+  department      String   // e.g. "Computer Science & Engineering"
+  graduationYear  Int      // e.g. 2026
+  cgpa            Float?   // e.g. 8.75 (scale of 10)
+  skills          String[] // ["React", "Node.js", "Python"]
+  resumeReference String?
+  phone           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([department])
+  @@index([graduationYear])
+}
+
+model Company {
+  id          String           @id @default(cuid())
+  name        String
+  description String
+  website     String?
+  industry    String?
+  location    String?
+  isArchived  Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  drives      PlacementDrive[]
+
+  @@index([name])
+}
+
+model PlacementDrive {
+  id               String             @id @default(cuid())
+  companyId        String
+  company          Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  title            String
+  jobDescription   String
+  jobType          String?            // "Full-time", "Internship", "FTE + Internship"
+  location         String?
+  salaryMin        Float?             // in LPA
+  salaryMax        Float?             // in LPA
+  salaryDisplay    String?            // e.g. "12 - 16 LPA"
+  currency         String             @default("INR")
+  deadlineAt       DateTime
+  status           DriveStatus        @default(DRAFT)
+  eligibleBranches String[]
+  eligibleGradYears Int[]
+  minimumCgpa      Float?
+  requiredSkills   String[]
+  createdById      String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  recruitmentRounds RecruitmentRound[]
+  applications     Application[]
+
+  @@index([companyId])
+  @@index([status])
+  @@index([deadlineAt])
+}
+
+model RecruitmentRound {
+  id               String                   @id @default(cuid())
+  placementDriveId String
+  placementDrive   PlacementDrive           @relation(fields: [placementDriveId], references: [id], onDelete: Cascade)
+  name             String
+  roundType        RoundType                @default(TECHNICAL_INTERVIEW)
+  sequence         Int                      @default(1)
+  scheduledAt      DateTime?
+  description      String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  results          ApplicationRoundResult[]
+
+  @@index([placementDriveId, sequence])
+}
+
+model Application {
+  id               String                   @id @default(cuid())
+  studentId        String
+  student          User                     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  placementDriveId String
+  placementDrive   PlacementDrive           @relation(fields: [placementDriveId], references: [id], onDelete: Restrict)
+  status           ApplicationStatus        @default(APPLIED)
+  appliedAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  roundResults     ApplicationRoundResult[]
+  statusLogs       ApplicationStatusLog[]
+
+  @@unique([studentId, placementDriveId])
+  @@index([studentId])
+  @@index([placementDriveId])
+  @@index([status])
+}
+
+model ApplicationRoundResult {
+  id                 String           @id @default(cuid())
+  applicationId      String
+  application        Application      @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  recruitmentRoundId String
+  recruitmentRound   RecruitmentRound @relation(fields: [recruitmentRoundId], references: [id], onDelete: Cascade)
+  status             RoundOutcome     @default(PENDING)
+  notes              String?
+  updatedById        String?
+  updatedAt          DateTime         @updatedAt
+
+  @@unique([applicationId, recruitmentRoundId])
+  @@index([applicationId])
+  @@index([recruitmentRoundId])
+}
+
+model ApplicationStatusLog {
+  id              String             @id @default(cuid())
+  applicationId   String
+  application     Application        @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  fromStatus      ApplicationStatus?
+  toStatus        ApplicationStatus
+  changedByUserId String?
+  reason          String?
+  createdAt       DateTime           @default(now())
+
+  @@index([applicationId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      NotificationType @default(INFO)
+  linkUrl   String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, readAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actorUser   User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  action      String
+  entityType  String
+  entityId    String
+  details     String?
+  createdAt   DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([entityType, entityId])
+}
