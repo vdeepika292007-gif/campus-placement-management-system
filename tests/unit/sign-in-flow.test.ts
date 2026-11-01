@@ -1,11 +1,15 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import { prisma, ensureDatabaseReady } from "@/lib/db";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { prisma, ensureDatabaseReady, closeDatabase } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/password";
 import { requireAdmin, requireStudent } from "@/lib/auth/permissions";
 
 describe("Sign-In Authentication and Role Enforcement", () => {
   beforeAll(async () => {
     await ensureDatabaseReady();
+  });
+
+  afterAll(async () => {
+    await closeDatabase();
   });
 
   it("authenticates seeded demo student credentials correctly", async () => {

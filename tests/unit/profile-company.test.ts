@@ -90,6 +90,35 @@ describe("Phase 3 — Admin Company Validation & Relational Safeguards", () => {
       website: "not-a-valid-url",
     });
     expect(invalidUrl.success).toBe(false);
+
+    // Company with optional logoUrl and companySize
+    const validWithLogoAndSize = companySchema.safeParse({
+      name: "Novus Hardware",
+      description: "Industrial robotics manufacturing and testing.",
+      website: "https://novus.example.com",
+      industry: "Robotics",
+      location: "Bangalore",
+      logoUrl: "https://novus.example.com/logo.png",
+      companySize: "501-1,000 employees",
+    });
+    expect(validWithLogoAndSize.success).toBe(true);
+
+    // Existing company without logoUrl or companySize remains fully valid
+    const validLegacy = companySchema.safeParse({
+      name: "Legacy Corp",
+      description: "Old corporation without logo or size fields specified.",
+    });
+    expect(validLegacy.success).toBe(true);
+    expect(validLegacy.data?.logoUrl).toBeUndefined();
+    expect(validLegacy.data?.companySize).toBeUndefined();
+
+    // Invalid logo URL
+    const invalidLogo = companySchema.safeParse({
+      name: "Bad Logo Corp",
+      description: "Company with malformed logo URL string.",
+      logoUrl: "not-a-valid-logo-url",
+    });
+    expect(invalidLogo.success).toBe(false);
   });
 
   it("enforces soft-archive preference over hard delete when related records exist", () => {

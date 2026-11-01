@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name, description, website, industry, location } = parseResult.data;
+    const { name, description, website, industry, location, logoUrl, companySize } = parseResult.data;
 
     const company = await prisma.company.create({
       data: {
@@ -71,6 +71,8 @@ export async function POST(req: NextRequest) {
         website: website || null,
         industry: industry || null,
         location: location || null,
+        logoUrl: logoUrl || null,
+        companySize: companySize || null,
       },
     });
 

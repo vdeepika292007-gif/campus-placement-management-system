@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
+import { formatDateTime } from "@/lib/utils";
 import {
   Briefcase,
   Building2,
@@ -150,6 +151,12 @@ export default function CreateDrivePage() {
       return;
     }
 
+    const parsedDeadline = new Date(deadlineAt);
+    if (isNaN(parsedDeadline.getTime())) {
+      setFeedback({ type: "error", text: "Please enter a valid application deadline date and time." });
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -165,7 +172,7 @@ export default function CreateDrivePage() {
           salaryMin: salaryMin ? parseFloat(salaryMin) : null,
           salaryMax: salaryMax ? parseFloat(salaryMax) : null,
           salaryDisplay: salaryDisplay || null,
-          deadlineAt: new Date(deadlineAt).toISOString(),
+          deadlineAt: parsedDeadline.toISOString(),
           status: statusToSet,
           eligibleBranches,
           eligibleGradYears,
@@ -339,8 +346,14 @@ export default function CreateDrivePage() {
               type="datetime-local"
               value={deadlineAt}
               onChange={(e) => setDeadlineAt(e.target.value)}
+              helperText={
+                deadlineAt && !isNaN(new Date(deadlineAt).getTime())
+                  ? `Scheduled closing: ${formatDateTime(deadlineAt)} (Local Time)`
+                  : "Specify the exact deadline date and time for student registrations"
+              }
               required
             />
+
           </div>
         </CardContent>
       </Card>

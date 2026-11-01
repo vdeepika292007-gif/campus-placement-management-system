@@ -5,10 +5,11 @@ import Link from "next/link";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { DriveStatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { formatDate, formatSalary } from "@/lib/utils";
+import { formatDate, formatDateTime, formatDateTimeLocal, formatSalary } from "@/lib/utils";
 import {
   Briefcase,
   Plus,
@@ -21,7 +22,9 @@ import {
   AlertCircle,
   Clock,
   ArrowRight,
+  X,
 } from "lucide-react";
+
 
 interface DriveItem {
   id: string;
@@ -53,6 +56,9 @@ export default function AdminDrivesPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [reopenModalDrive, setReopenModalDrive] = useState<DriveItem | null>(null);
+  const [reopenDeadline, setReopenDeadline] = useState("");
+  const [reopenLoading, setReopenLoading] = useState(false);
 
   useEffect(() => {
     fetchDrives();
@@ -77,24 +83,37 @@ export default function AdminDrivesPage() {
     }
   };
 
-  const handleStatusChange = async (driveId: string, newStatus: string) => {
+  const handleStatusChange = async (driveId: string, newStatus: string, deadlineAt?: string) => {
     try {
+      const payload: { status: string; deadlineAt?: string } = { status: newStatus };
+      if (deadlineAt) {
+        const parsed = new Date(deadlineAt);
+        if (isNaN(parsed.getTime())) {
+          setFeedback({ type: "error", text: "Please provide a valid deadline date and time." });
+          return;
+        }
+        payload.deadlineAt = parsed.toISOString();
+      }
       const res = await fetch(`/api/admin/drives/${driveId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {
         setFeedback({ type: "success", text: data.message });
+        setReopenModalDrive(null);
         fetchDrives();
       } else {
         setFeedback({ type: "error", text: data.error || "Failed to update status." });
       }
     } catch {
       setFeedback({ type: "error", text: "Network error while updating status." });
+    } finally {
+      setReopenLoading(false);
     }
   };
+
 
   return (
     <div className="space-y-6">
@@ -212,7 +231,7 @@ export default function AdminDrivesPage() {
                     <div className="flex items-center gap-1.5">
                       <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                       <span className={isDeadlinePassed ? "text-red-600 font-semibold" : ""}>
-                        Deadline: {formatDate(drive.deadlineAt)}
+                        Deadline: {formatDateTime(drive.deadlineAt)}
                       </span>
                     </div>
 
@@ -268,7 +287,16 @@ export default function AdminDrivesPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleStatusChange(drive.id, "PUBLISHED")}
+                        onClick={() => {
+                          const isPassed = new Date(drive.deadlineAt).getTime() < Date.now();
+                          if (isPassed) {
+                            const defaultExtended = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                            setReopenDeadline(formatDateTimeLocal(defaultExtended));
+                            setReopenModalDrive(drive);
+                          } else {
+                            handleStatusChange(drive.id, "PUBLISHED");
+                          }
+                        }}
                       >
                         Reopen
                       </Button>
@@ -280,6 +308,74 @@ export default function AdminDrivesPage() {
           })}
         </div>
       )}
+
+      {/* Reopen Placement Drive Modal (when deadline has passed) */}
+      {reopenModalDrive && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl bg-[#0e1628] p-6 shadow-2xl border border-[#1e2d4a]">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1e2d4a] mb-4">
+              <div>
+                <h2 className="text-base font-bold text-white">Reopen Placement Drive</h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Set an extended deadline for {reopenModalDrive.title}.
+                </p>
+              </div>
+              <button
+                onClick={() => setReopenModalDrive(null)}
+                className="p-1 text-slate-400 hover:text-white rounded-md"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-xs text-slate-300">
+                The previous deadline for this placement drive has passed. Please specify the new closing date & time so eligible students can submit applications.
+              </p>
+
+              <Input
+                label="New Application Deadline Date & Time *"
+                type="datetime-local"
+                value={reopenDeadline}
+                onChange={(e) => setReopenDeadline(e.target.value)}
+                helperText={
+                  reopenDeadline && !isNaN(new Date(reopenDeadline).getTime())
+                    ? `New deadline: ${formatDateTime(reopenDeadline)} (Local time)`
+                    : "Select extended deadline"
+                }
+                required
+              />
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-[#1e2d4a]">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  onClick={() => setReopenModalDrive(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="md"
+                  isLoading={reopenLoading}
+                  onClick={() => {
+                    if (reopenModalDrive && reopenDeadline) {
+                      setReopenLoading(true);
+                      handleStatusChange(reopenModalDrive.id, "PUBLISHED", reopenDeadline);
+                    }
+                  }}
+                >
+                  Reopen Drive
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

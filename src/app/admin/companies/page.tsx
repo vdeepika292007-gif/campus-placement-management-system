@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
+  Users,
 } from "lucide-react";
 
 interface CompanyItem {
@@ -30,6 +31,8 @@ interface CompanyItem {
   website?: string | null;
   industry?: string | null;
   location?: string | null;
+  logoUrl?: string | null;
+  companySize?: string | null;
   isArchived: boolean;
   createdAt: string;
   _count?: {
@@ -51,6 +54,8 @@ export default function AdminCompaniesPage() {
     website: "",
     industry: "",
     location: "",
+    logoUrl: "",
+    companySize: "",
   });
   const [formLoading, setFormLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -87,6 +92,8 @@ export default function AdminCompaniesPage() {
         website: comp.website || "",
         industry: comp.industry || "",
         location: comp.location || "",
+        logoUrl: comp.logoUrl || "",
+        companySize: comp.companySize || "",
       });
     } else {
       setEditingCompany(null);
@@ -96,6 +103,8 @@ export default function AdminCompaniesPage() {
         website: "",
         industry: "",
         location: "",
+        logoUrl: "",
+        companySize: "",
       });
     }
     setFeedback(null);
@@ -243,16 +252,36 @@ export default function AdminCompaniesPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700 font-bold text-sm border border-blue-100">
+                    {company.logoUrl ? (
+                      <img
+                        src={company.logoUrl}
+                        alt={company.name}
+                        className="h-10 w-10 object-contain rounded-lg border border-slate-200 bg-white p-0.5 shrink-0"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = "none";
+                          const fallback = (e.target as HTMLElement).parentElement?.querySelector(".logo-fallback");
+                          if (fallback) fallback.classList.remove("hidden");
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className={`logo-fallback flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700 font-bold text-sm border border-blue-100 shrink-0 ${
+                        company.logoUrl ? "hidden" : ""
+                      }`}
+                    >
                       {company.name.charAt(0)}
                     </div>
                     <div>
                       <CardTitle className="text-sm font-bold text-slate-900 leading-tight">
                         {company.name}
                       </CardTitle>
-                      {company.industry && (
-                        <span className="text-[11px] text-slate-500 block">{company.industry}</span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
+                        {company.industry && <span>{company.industry}</span>}
+                        {company.industry && company.companySize && <span>•</span>}
+                        {company.companySize && (
+                          <span className="text-slate-600 font-medium">{company.companySize}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -381,13 +410,41 @@ export default function AdminCompaniesPage() {
                 />
               </div>
 
-              <Input
-                label="Official Website URL"
-                type="url"
-                placeholder="https://example.com"
-                value={formData.website}
-                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="Official Website URL"
+                  type="url"
+                  placeholder="https://example.com"
+                  value={formData.website}
+                  onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                />
+
+                <Input
+                  label="Company Logo URL (Optional)"
+                  type="url"
+                  placeholder="https://example.com/logo.png"
+                  value={formData.logoUrl}
+                  onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
+                  helperText="Direct image URL for company badge"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-700">Company Size (Optional)</label>
+                <select
+                  className="w-full rounded-lg border border-slate-300 p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-600 bg-white"
+                  value={formData.companySize}
+                  onChange={(e) => setFormData({ ...formData, companySize: e.target.value })}
+                >
+                  <option value="">Select company size...</option>
+                  <option value="1-50 employees">1-50 employees (Startup)</option>
+                  <option value="51-200 employees">51-200 employees (Early Stage)</option>
+                  <option value="201-500 employees">201-500 employees (Mid-sized)</option>
+                  <option value="501-1,000 employees">501-1,000 employees (Growth)</option>
+                  <option value="1,001-5,000 employees">1,001-5,000 employees (Large Enterprise)</option>
+                  <option value="5,000+ employees">5,000+ employees (Global MNC)</option>
+                </select>
+              </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <Button

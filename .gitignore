@@ -43,3 +43,5 @@ next-env.d.ts
 
 # local database data
 /prisma/pgdata
+/backups
+

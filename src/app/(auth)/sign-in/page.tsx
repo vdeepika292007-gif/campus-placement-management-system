@@ -51,13 +51,9 @@ export default function SignInPage() {
         return;
       }
 
-      // Route strictly based on verified user role
-      if (data.user?.role === "ADMIN") {
-        router.push("/admin/dashboard");
-      } else {
-        router.push("/student/dashboard");
-      }
-      router.refresh();
+      // Route strictly based on verified user role using hard navigation to guarantee cookie is sent
+      const destination = data.user?.role === "ADMIN" ? "/admin/dashboard" : "/student/dashboard";
+      window.location.href = destination;
     } catch {
       setErrorMessage("Network or server connection error. Please try again.");
       setIsLoading(false);

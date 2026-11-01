@@ -8,7 +8,8 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { DriveStatusBadge, ApplicationStatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { formatDate, formatSalary } from "@/lib/utils";
+import { formatDate, formatDateTime, formatSalary } from "@/lib/utils";
+import { EditDriveModal } from "@/components/admin/EditDriveModal";
 import {
   Briefcase,
   Building2,
@@ -70,6 +71,7 @@ export default async function AdminDriveDetailPage({
         title={drive.title}
         description={`Placement Drive for ${drive.company.name}`}
         badge={<DriveStatusBadge status={drive.status} />}
+        actions={<EditDriveModal drive={drive} />}
       />
 
       {/* Overview Grid */}
@@ -108,7 +110,7 @@ export default async function AdminDriveDetailPage({
               <div>
                 <span className="text-slate-400 block font-medium">Deadline</span>
                 <span className={`font-semibold mt-0.5 block ${isExpired ? "text-red-600 font-bold" : "text-slate-800"}`}>
-                  {formatDate(drive.deadlineAt)}
+                  {formatDateTime(drive.deadlineAt)}
                 </span>
               </div>
 

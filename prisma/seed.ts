@@ -1,4 +1,4 @@
-import { prisma, ensureDatabaseReady } from "../src/lib/db";
+import { prisma, ensureDatabaseReady, closeDatabase } from "../src/lib/db";
 import { runSeed } from "../src/lib/seed-data";
 
 async function main() {
@@ -13,5 +13,7 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await closeDatabase();
+    process.exit(0);
   });
+

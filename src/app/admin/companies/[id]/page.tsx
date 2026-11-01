@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { DriveStatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { formatDate, formatSalary } from "@/lib/utils";
+import { formatDate, formatDateTime, formatSalary } from "@/lib/utils";
 import {
   Building2,
   ExternalLink,
@@ -84,7 +84,16 @@ export default async function AdminCompanyDetailsPage({
       {/* Company Profile Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Corporate Background</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Corporate Background</CardTitle>
+            {company.logoUrl && (
+              <img
+                src={company.logoUrl}
+                alt={`${company.name} logo`}
+                className="h-10 max-w-32 object-contain rounded border border-slate-200 bg-white p-1"
+              />
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs sm:text-sm text-slate-700 leading-relaxed max-w-3xl">
@@ -96,6 +105,13 @@ export default async function AdminCompanyDetailsPage({
               <div className="flex items-center gap-1.5">
                 <MapPin className="h-4 w-4 text-slate-400" />
                 <span>{company.location}</span>
+              </div>
+            )}
+
+            {company.companySize && (
+              <div className="flex items-center gap-1.5">
+                <Users className="h-4 w-4 text-slate-400" />
+                <span>{company.companySize}</span>
               </div>
             )}
 
@@ -154,7 +170,7 @@ export default async function AdminCompanyDetailsPage({
                     <span>{drive._count.applications} Applicants</span>
                   </div>
 
-                  <span>Deadline: {formatDate(drive.deadlineAt)}</span>
+                  <span>Deadline: {formatDateTime(drive.deadlineAt)}</span>
                 </div>
               </Card>
             ))}

@@ -103,6 +103,8 @@ model Company {
   website     String?
   industry    String?
   location    String?
+  logoUrl     String?
+  companySize String?
   isArchived  Boolean          @default(false)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt

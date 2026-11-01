@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { DriveStatusBadge, ApplicationStatusBadge } from "@/components/ui/StatusBadge";
-import { formatDate, formatSalary } from "@/lib/utils";
+import { formatDate, formatDateTime, formatSalary } from "@/lib/utils";
 import {
   Briefcase,
   Building2,
@@ -103,7 +103,7 @@ export default async function AdminDashboardPage() {
             <Link href="/admin/reports">
               <Button variant="outline" size="sm">
                 <BarChart3 className="h-4 w-4 mr-1.5" />
-                Reports & Export
+                Analytics & Reports
               </Button>
             </Link>
             <Link href="/admin/drives/new">
@@ -284,7 +284,7 @@ export default async function AdminDashboardPage() {
                         {drive.title}
                       </span>
                       <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                        {formatDate(drive.deadlineAt)}
+                        {formatDateTime(drive.deadlineAt)}
                       </span>
                     </div>
                     <span className="text-[11px] text-slate-500 block">

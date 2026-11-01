@@ -24,7 +24,13 @@ export const driveSchema = z.object({
   salaryMin: z.coerce.number().min(0).optional().nullable(),
   salaryMax: z.coerce.number().min(0).optional().nullable(),
   salaryDisplay: z.string().trim().optional().nullable(),
-  deadlineAt: z.string().min(1, "Application deadline is required"),
+  deadlineAt: z
+    .string()
+    .min(1, "Application deadline is required")
+    .refine((val) => !isNaN(new Date(val).getTime()), {
+      message: "Please enter a valid date and time for the application deadline",
+    }),
+
   status: z.enum(["DRAFT", "PUBLISHED", "CLOSED", "ARCHIVED"]).default("DRAFT"),
   eligibleBranches: z.array(z.string()).min(1, "Select at least one eligible academic department"),
   eligibleGradYears: z.array(z.coerce.number().int()).min(1, "Select at least one eligible graduation batch"),

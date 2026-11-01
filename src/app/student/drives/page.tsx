@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { EligibilityBadge, EligibilityStatus } from "@/components/ui/EligibilityBadge";
 import { ApplicationStatusBadge } from "@/components/ui/StatusBadge";
-import { formatDate, formatSalary } from "@/lib/utils";
+import { formatDate, formatDateTime, formatSalary } from "@/lib/utils";
 import {
   Briefcase,
   Search,
@@ -193,7 +193,7 @@ export default function StudentDrivesPage() {
                     <div className="flex items-center gap-1.5">
                       <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                       <span className={drive.isExpired ? "text-red-600 font-semibold" : ""}>
-                        {drive.isExpired ? "Deadline Expired" : `Deadline: ${formatDate(drive.deadlineAt)}`}
+                        {drive.isExpired ? "Deadline Expired" : `Deadline: ${formatDateTime(drive.deadlineAt)}`}
                       </span>
                     </div>
                   </div>

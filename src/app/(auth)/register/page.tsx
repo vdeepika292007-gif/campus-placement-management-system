@@ -76,8 +76,7 @@ export default function RegisterPage() {
         return;
       }
 
-      router.push("/student/dashboard");
-      router.refresh();
+      window.location.href = "/student/dashboard";
     } catch {
       setErrorMessage("A network error occurred. Please try again.");
       setIsLoading(false);

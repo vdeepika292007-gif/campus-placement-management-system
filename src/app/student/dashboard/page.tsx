@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ApplicationStatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { formatDate, formatSalary } from "@/lib/utils";
+import { formatDate, formatDateTime, formatSalary } from "@/lib/utils";
 import { evaluateEligibility } from "@/lib/eligibility/engine";
 import {
   Briefcase,
@@ -199,7 +199,7 @@ export default async function StudentDashboardPage() {
                             {formatSalary(drive.salaryMin, drive.salaryMax, drive.salaryDisplay)}
                           </span>
                           <span>•</span>
-                          <span>Deadline: {formatDate(drive.deadlineAt)}</span>
+                          <span>Deadline: {formatDateTime(drive.deadlineAt)}</span>
                         </div>
                       </div>
 

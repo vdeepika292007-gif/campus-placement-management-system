@@ -5,12 +5,13 @@ import { PGlite } from "@electric-sql/pglite";
 import { Pool } from "pg";
 import path from "path";
 import fs from "fs";
-import { ensureSchema } from "./db-schema";
+import { ensureSchema, SCHEMA_SQL } from "./db-schema";
 import { runSeed } from "./seed-data";
 
 interface GlobalDatabase {
   prisma?: PrismaClient;
   pglite?: PGlite;
+  pgPool?: Pool;
   initPromise?: Promise<void>;
   isReady?: boolean;
 }
@@ -27,26 +28,54 @@ const isBuilding =
   process.env.NEXT_PHASE === "phase-production-build" ||
   process.env.npm_lifecycle_event === "build";
 
+const isTest =
+  process.env.VITEST === "true" ||
+  process.env.NODE_ENV === "test";
+
 const state = globalForDb.__cpms_db;
+
+// Development persistent database directory: strictly uses prisma/pgdata
+const dbDir = path.join(process.cwd(), "prisma", "pgdata");
+
+/**
+ * Cleans stale lock files left behind by interrupted process exits.
+ * Only removes postmaster.pid, never touches user data or database tables.
+ */
+function cleanStaleLock(dir: string) {
+  try {
+    const pidFile = path.join(dir, "postmaster.pid");
+    if (fs.existsSync(pidFile)) {
+      console.log("[Database] Cleaned stale postmaster.pid lock file from", dir);
+      fs.unlinkSync(pidFile);
+    }
+  } catch (err) {
+    console.warn("[Database] Could not clean lock file:", err);
+  }
+}
 
 function createPrismaClient(): PrismaClient {
   const customUrl = process.env.DATABASE_URL;
 
-  // If a valid external postgres URL is provided (e.g. Supabase, Neon, or explicit remote Postgres)
+  // 1. External PostgreSQL connection (e.g. Local PostgreSQL Server, Neon, Supabase)
   if (
     customUrl &&
     (customUrl.startsWith("postgres://") || customUrl.startsWith("postgresql://")) &&
-    !customUrl.includes("localhost:5432/campus_placement")
+    !customUrl.includes("USER:PASSWORD@HOST") &&
+    !customUrl.includes("YOUR_PASSWORD")
   ) {
-    console.log("[Database] Connecting to external PostgreSQL database via DATABASE_URL");
-    const pool = new Pool({ connectionString: customUrl });
-    const adapter = new PrismaPg(pool);
+    console.log("[Database] Connecting to external PostgreSQL Server via DATABASE_URL");
+    if (!state.pgPool) {
+      state.pgPool = new Pool({ connectionString: customUrl });
+    }
+    const adapter = new PrismaPg(state.pgPool);
     return new PrismaClient({ adapter });
   }
 
-  // During static page builds in Next.js worker threads, use in-memory PGlite
-  // to prevent multi-worker file lock collisions on Windows
-  if (isBuilding) {
+  // 2. Build time & Test environments:
+  // Use isolated in-memory PGlite to prevent multi-worker lock contention,
+  // ensure fast test execution, and guarantee tests never touch or corrupt
+  // the development app's persistent data in prisma/pgdata.
+  if (isBuilding || isTest) {
     if (!state.pglite) {
       state.pglite = new PGlite();
     }
@@ -54,11 +83,12 @@ function createPrismaClient(): PrismaClient {
     return new PrismaClient({ adapter });
   }
 
-  // Zero-configuration local mode using embedded persistent PGlite
-  const dbDir = path.join(process.cwd(), "prisma", "pgdata");
+  // 3. Persistent development database: strictly uses prisma/pgdata
   if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
   }
+
+  cleanStaleLock(dbDir);
 
   if (!state.pglite) {
     state.pglite = new PGlite(dbDir);
@@ -68,13 +98,30 @@ function createPrismaClient(): PrismaClient {
   return new PrismaClient({ adapter });
 }
 
-export const prisma = state.prisma ?? createPrismaClient();
+function getPrismaClient(): PrismaClient {
+  if (state.prisma) return state.prisma;
+  state.prisma = createPrismaClient();
+  return state.prisma;
+}
+
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const client = getPrismaClient();
+    const val = (client as any)[prop];
+    if (typeof val === "function") {
+      return val.bind(client);
+    }
+    return val;
+  },
+});
+
 if (process.env.NODE_ENV !== "production") {
-  state.prisma = prisma;
+  getPrismaClient();
 }
 
 /**
  * Ensures the database schema exists and initial demo records are seeded.
+ * Preserves existing user data and never deletes database folders.
  */
 export async function ensureDatabaseReady(): Promise<void> {
   if (isBuilding) return;
@@ -83,26 +130,95 @@ export async function ensureDatabaseReady(): Promise<void> {
 
   state.initPromise = (async () => {
     try {
-      if (state.pglite) {
+      console.log("[Database] Step 1: getPrismaClient...");
+      getPrismaClient();
+
+      if (state.pgPool) {
+        console.log("[Database] Step 2: ensuring schema on external PostgreSQL database...");
+        await state.pgPool.query(SCHEMA_SQL);
+      } else if (state.pglite) {
+        console.log("[Database] Step 2: awaiting pglite.waitReady...");
         await state.pglite.waitReady;
+        console.log("[Database] Step 3: ensuring schema...");
         await ensureSchema(state.pglite);
       }
 
-      // Check if user accounts exist
-      const userCount = await prisma.user.count().catch(() => 0);
+      console.log("[Database] Step 4: checking user count...");
+      // Check if user accounts exist before seeding
+      const userCount = await prisma.user.count();
       if (userCount === 0) {
-        console.log("[Database] No user records detected. Performing automated demo seeding...");
+        console.log("[Database] No existing user records detected. Performing initial demo seeding...");
         await runSeed(prisma);
+      } else {
+        console.log(`[Database] Found ${userCount} existing user account(s). Preserving user data.`);
       }
+
       state.isReady = true;
-      console.log("[Database] Ready and verified for requests.");
-    } catch (err) {
-      console.error("[Database] Initialization failure:", err);
+      console.log("[Database] Database ready and verified for requests.");
+    } catch (err: any) {
+      state.initPromise = undefined; // Reset promise so subsequent requests can retry
+      console.error("[Database] Initialization failure at ensureDatabaseReady:", err?.stack || err?.message || err);
       throw err;
     }
   })();
 
   return state.initPromise;
+}
+
+/**
+ * Gracefully closes the database connection and shuts down PGlite or PG pool.
+ */
+export async function closeDatabase(): Promise<void> {
+  if (state.prisma) {
+    try {
+      await state.prisma.$disconnect();
+    } catch {}
+  }
+  if (state.pgPool) {
+    try {
+      await state.pgPool.end();
+    } catch {}
+    state.pgPool = undefined;
+  }
+  if (state.pglite) {
+    try {
+      await state.pglite.close();
+    } catch {}
+    state.pglite = undefined;
+  }
+  state.prisma = undefined;
+  state.isReady = false;
+  state.initPromise = undefined;
+  if (!isTest && !isBuilding) {
+    cleanStaleLock(dbDir);
+  }
+}
+
+// Graceful process exit cleanup
+if (typeof process !== "undefined" && !isBuilding && !isTest) {
+  const cleanup = () => {
+    if (state.pgPool) {
+      try {
+        state.pgPool.end();
+      } catch {}
+      state.pgPool = undefined;
+    }
+    if (state.pglite) {
+      try {
+        state.pglite.close();
+      } catch {}
+      state.pglite = undefined;
+    }
+    cleanStaleLock(dbDir);
+  };
+  process.once("SIGINT", () => {
+    cleanup();
+    process.exit(0);
+  });
+  process.once("SIGTERM", () => {
+    cleanup();
+    process.exit(0);
+  });
 }
 
 if (!isBuilding) {

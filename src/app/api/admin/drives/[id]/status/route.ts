@@ -14,7 +14,7 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
 
-    const { status } = body;
+    const { status, deadlineAt } = body;
 
     if (!Object.values(DriveStatus).includes(status)) {
       return NextResponse.json(
@@ -35,11 +35,20 @@ export async function PATCH(
       );
     }
 
+    const updateData: { status: DriveStatus; deadlineAt?: Date } = { status };
+    if (deadlineAt) {
+      const parsedDeadline = new Date(deadlineAt);
+      if (!isNaN(parsedDeadline.getTime())) {
+        updateData.deadlineAt = parsedDeadline;
+      }
+    }
+
     const updated = await prisma.$transaction(async (tx) => {
       const updatedDrive = await tx.placementDrive.update({
         where: { id },
-        data: { status },
+        data: updateData,
       });
+
 
       // If published, notify eligible registered students
       if (status === "PUBLISHED" && drive.status !== "PUBLISHED") {

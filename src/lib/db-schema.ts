@@ -76,10 +76,15 @@ CREATE TABLE IF NOT EXISTS "Company" (
   "website" TEXT,
   "industry" TEXT,
   "location" TEXT,
+  "logoUrl" TEXT,
+  "companySize" TEXT,
   "isArchived" BOOLEAN NOT NULL DEFAULT false,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "logoUrl" TEXT;
+ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "companySize" TEXT;
 
 CREATE TABLE IF NOT EXISTS "PlacementDrive" (
   "id" TEXT NOT NULL PRIMARY KEY,

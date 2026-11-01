@@ -12,6 +12,14 @@ export const companySchema = z.object({
     .or(z.literal("")),
   industry: z.string().trim().optional().nullable(),
   location: z.string().trim().optional().nullable(),
+  logoUrl: z
+    .string()
+    .trim()
+    .url("Must be a valid image URL (starting with http:// or https://)")
+    .optional()
+    .nullable()
+    .or(z.literal("")),
+  companySize: z.string().trim().optional().nullable(),
   isArchived: z.boolean().optional(),
 });
 

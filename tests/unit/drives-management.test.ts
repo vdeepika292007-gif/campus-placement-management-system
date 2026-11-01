@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { driveSchema } from "@/lib/validation/drive";
+import { formatDateTimeLocal, formatDateTime } from "@/lib/utils";
 
 describe("Phase 4 — Placement Drive Validation", () => {
   it("validates well-formed placement drive specifications", () => {
@@ -92,5 +93,37 @@ describe("Phase 4 — Server-Side Publication & Deadline Enforcement Logic", () 
 
     expect(isFutureExpired).toBe(false);
     expect(isPastExpired).toBe(true);
+  });
+
+  it("correctly converts dates to datetime-local HTML5 input values and displays date-time with minutes", () => {
+    // Fixed reference date: 2026-11-15 14:30 local time
+    const testDate = new Date(2026, 10, 15, 14, 30, 0); // Month is 0-indexed: 10 = Nov
+    const localInputValue = formatDateTimeLocal(testDate);
+    expect(localInputValue).toBe("2026-11-15T14:30");
+
+    // Display formatting includes month, day, year, and formatted time with AM/PM
+    const formatted = formatDateTime(testDate);
+    expect(formatted).toContain("Nov 15, 2026");
+    expect(formatted).toMatch(/2:30\s*PM/);
+
+    // Handles string date inputs
+    const fromIso = formatDateTimeLocal("2026-11-15T14:30:00.000Z");
+    expect(fromIso).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+
+    // Empty date handling
+    expect(formatDateTimeLocal("")).toBe("");
+    expect(formatDateTime(null)).toBe("N/A");
+  });
+
+  it("rejects non-date deadlineAt strings in driveSchema", () => {
+    const invalidDeadline = driveSchema.safeParse({
+      companyId: "comp-123",
+      title: "Valid Role",
+      jobDescription: "Valid description of sufficient length.",
+      deadlineAt: "not-a-date",
+      eligibleBranches: ["CSE"],
+      eligibleGradYears: [2026],
+    });
+    expect(invalidDeadline.success).toBe(false);
   });
 });

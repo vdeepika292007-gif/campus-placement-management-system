@@ -11,7 +11,9 @@
     "test:watch": "vitest",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "seed:demo": "tsx scripts/seed_demo_data.ts",
+    "clean:demo": "tsx scripts/clean_demo_data.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

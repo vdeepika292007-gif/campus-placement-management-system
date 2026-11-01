@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EligibilityBadge } from "@/components/ui/EligibilityBadge";
 import { ApplicationStatusBadge } from "@/components/ui/StatusBadge";
-import { formatDate, formatSalary } from "@/lib/utils";
+import { formatDate, formatDateTime, formatSalary } from "@/lib/utils";
 import { evaluateEligibility, EligibilityResult } from "@/lib/eligibility/engine";
 import {
   Building2,
@@ -200,7 +200,7 @@ export default function StudentDriveDetailPage() {
                   isExpired ? "text-red-600 font-bold" : "text-slate-800"
                 }`}
               >
-                {formatDate(drive.deadlineAt)}
+                {formatDateTime(drive.deadlineAt)}
               </span>
             </div>
           </div>

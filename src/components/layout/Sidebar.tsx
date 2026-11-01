@@ -51,7 +51,7 @@ export function Sidebar({
     { label: "Placement Drives", href: "/admin/drives", icon: Briefcase },
     { label: "Companies", href: "/admin/companies", icon: Building2 },
     { label: "Students", href: "/admin/students", icon: Users },
-    { label: "Reports & Analytics", href: "/admin/reports", icon: BarChart3 },
+    { label: "Analytics & Reports", href: "/admin/reports", icon: BarChart3 },
     {
       label: "Notifications",
       href: "/admin/notifications",

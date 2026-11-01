@@ -1,7 +1,7 @@
 # Campus Placement Management System (CPMS) — Project Progress
 
-**Document Version:** 2.0  
-**Last Updated:** UI Polish, Dark Theme Overhaul, Zero-Config DB & Demo Sign-In Fix Verified  
+**Document Version:** 2.1  
+**Last Updated:** Embedded DB Self-Healing, Stale Lock Auto-Cleanup & Dual-Role Demo Sign-In Verified  
 **Target Roles:** Student & Placement Administrator  
 **Architecture:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, Prisma ORM, Embedded Persistent PostgreSQL (PGlite) / Remote PostgreSQL
 
@@ -44,6 +44,17 @@
    - Isolated build-time static page collection from file locking by using in-memory PGlite during `next build`, completely preventing multi-worker lock contention on Windows.
 4. **Enhanced Server Logging & User-Friendly Errors (`src/app/api/auth/sign-in/route.ts`):**
    - Added descriptive server diagnostics via `console.warn` and `console.error` detailing authentication failures (user not found, password mismatch, role violations), while returning safe, contextual messages to the user.
+5. **PGlite Concurrency & Test Isolation Fix (`src/lib/db.ts`):**
+   - **Root Cause Analysis:** 
+     1. When tests (`npm test` / Vitest) were executed while the Next.js development server (`next dev`) was running, both processes concurrently opened `prisma/pgdata`. On Windows under OneDrive, this multi-process file contention caused WAL locks, leaving stale `postmaster.pid` files and corrupting the WAL recovery checkpoint.
+     2. Awaiting `state.pglite.waitReady` at `src/lib/db.ts:87` consequently threw `RuntimeError: Aborted()`, causing sign-in requests to fail with HTTP 500.
+     3. The temporary directories (`prisma/test_pgdata`, `prisma/test_clean_pgdata`, `prisma/test_heal_pgdata`) were diagnostic scratch paths used during earlier manual tests and are not part of the application.
+   - **Resolution Implemented:**
+     1. **Test Environment Isolation:** Configured `isTest` (`process.env.VITEST === "true" || process.env.NODE_ENV === "test"`) to strictly use an isolated in-memory PGlite instance (`new PGlite()`). Tests never access or lock `prisma/pgdata`, eliminating concurrent file locking between test runners and `next dev`.
+     2. **Dedicated Development Database:** The development server strictly uses the persistent `prisma/pgdata` directory and never writes to test directories.
+     3. **Preservation of User Data:** Removed any automatic directory deletion or account wiping. Existing user accounts and database folders are strictly preserved.
+     4. **Stale Lock Cleanup:** Added safe `cleanStaleLock()` that only unlinks stale `postmaster.pid` if an ungraceful shutdown occurred, without touching database tables or WAL records.
+     5. **Promise Recovery:** If an initialization error occurs, `state.initPromise` is cleared to allow subsequent requests to retry cleanly.
 
 ---
 
@@ -73,7 +84,7 @@
 
 1. `src/lib/db-schema.ts` — Created complete PostgreSQL DDL and `ensureSchema()` helper for embedded and external databases.
 2. `src/lib/seed-data.ts` — Created reusable demo seeding module (`runSeed`) for admin, students, companies, drives, applications, and notifications.
-3. `src/lib/db.ts` — Implemented resilient zero-config database client supporting embedded PGlite, external PostgreSQL, build-time multi-worker safeguards, and auto-initialization.
+3. `src/lib/db.ts` — Configured test environment in-memory isolation (`isTest`), stale lock file cleanup (`cleanStaleLock`), data preservation safeguard (no folder deletion), and dynamic Proxy client.
 4. `src/lib/validation/auth.ts` — Added `intendedRole: z.enum(["STUDENT", "ADMIN"]).optional()` to `signInSchema`.
 5. `src/app/api/auth/sign-in/route.ts` — Added role mismatch enforcement, safe user error messages, and server logging.
 6. `prisma/seed.ts` — Updated to use resilient `prisma` client and `runSeed()` module.
@@ -144,3 +155,110 @@ npm run dev
 
 Open your browser at **`http://localhost:3000`** (or **`http://localhost:3000/sign-in`**).
 You can now click either **Student Login** or **Admin Login**, use the **Click to Autofill** demo button, and sign in immediately with zero manual database setup required!
+
+---
+
+## Phase 10 — Database Verification, Deadline Retention Fix & Company Profile Expansion
+
+### 1. Database Architecture & Lifecycle Verification
+- **Engine & Provider:** Embedded Persistent PostgreSQL 17.5 via WebAssembly (`@electric-sql/pglite` v0.4.3 + `pglite-prisma-adapter` v0.7.2). When external `DATABASE_URL` is unset, zero-configuration local embedded mode is used.
+- **Storage Location:** Strictly persistent on disk at `prisma/pgdata` (contains PostgreSQL `global/`, `base/`, `pg_wal/`, `pg_control`).
+- **Lifecycle (Frontend to Disk):**
+  1. Frontend submits React form / action.
+  2. Next.js App Router API route parses request and validates with Zod.
+  3. Route calls `prisma.<model>.<action>()`.
+  4. Prisma Client sends query through `PrismaPGlite` driver adapter.
+  5. The adapter passes query to WebAssembly PostgreSQL engine (`PGlite`).
+  6. PGlite executes relational SQL in Emscripten and flushes WAL / table records to disk under `prisma/pgdata`.
+- **Persistence Verification:**
+  - Preserved existing user created records including company `"Test company 01"` (`cmvxhq1ho0000wcujy7wnocsj`) alongside all seeded accounts and placement drives.
+  - Verified persistence across sign-out/sign-in and complete development server restarts.
+  - Configured `serverExternalPackages: ["@electric-sql/pglite", "pglite-prisma-adapter"]` in `next.config.ts` to prevent Turbopack from sandboxing native URL instances when loading WebAssembly assets.
+
+### 2. Placement Drive Application Deadline Fix
+- **Root Cause:**
+  1. HTML5 `<input type="datetime-local">` strictly expects local format `YYYY-MM-DDTHH:mm`. Passing standard ISO UTC strings caused browser validation to reject the value and clear the field.
+  2. Dark theme background rendered native browser date/clock picker indicator icons invisible in Chromium/Edge.
+  3. Reopening an expired drive retained the past deadline timestamp, immediately blocking student applications.
+  4. Display utility `formatDate` only showed `MMM D, YYYY`, omitting time of day.
+- **Resolution:**
+  - Added `formatDateTimeLocal()` in `src/lib/utils.ts` for bidirectional conversion with `<input type="datetime-local">`.
+  - Added `[color-scheme:dark]` to `Input.tsx` to ensure native calendar/time picker glyphs are bright and visible.
+  - Built interactive `EditDriveModal` (`src/components/admin/EditDriveModal.tsx`) allowing full modification and retention of deadline date and time.
+  - Reopen drive action prompts for deadline extension when reopening expired drives.
+  - Updated all student and admin views to `formatDateTime()` showing both date and time (e.g. `Nov 15, 2026, 11:45 PM`).
+
+### 3. Company Profile Form Enhancement
+- **Data Model Updates:** Added optional `logoUrl String?` and `companySize String?` to `model Company` in `prisma/schema.prisma` and non-destructive `ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS ...` in `src/lib/db-schema.ts`.
+- **Validation & API:** Updated `companySchema` in `src/lib/validation/company.ts` and API handlers (`/api/admin/companies`, `/api/admin/companies/[id]`). Existing company records remain 100% valid.
+- **UI Enhancements:**
+  - Modal form provides optional Company Logo URL input and Company Size dropdown selector.
+  - Company cards in `/admin/companies` and detail view `/admin/companies/[id]` display company logo (with graceful initial fallback) and company size badge.
+  - Role-specific recruitment details remain strictly on the Placement Drive model.
+- **Test Suite:** All 32 automated unit tests across 6 test files passing cleanly.
+
+---
+
+## PostgreSQL Server Migration Plan & Preparation
+
+### 1. Database Inspection Findings
+- **PostgreSQL Server Status:** Inspected Windows services (`Get-Service *postgres*`), port 5432 availability (`Test-NetConnection -Port 5432`), and path/directories (`where.exe psql`, `where.exe postgres`, `C:\Program Files\PostgreSQL`). **PostgreSQL Server is NOT currently installed or running on port 5432**.
+- **Active Database:** Embedded PGlite in `prisma/pgdata`.
+- **Existing Records Verified:**
+  - 4 Users (Admin: Prof. Rajesh Kumar; Students: Aarav Sharma, Priya Patel, Rahul Verma)
+  - 3 Student Profiles
+  - 4 Companies (including user-created `Test company 01`)
+  - 5 Placement Drives
+  - 2 Recruitment Rounds
+  - 1 Application (`drive-acme-sde` -> `SHORTLISTED`)
+  - 1 Application Status Log
+  - 2 Notifications
+  - 2 Audit Logs
+
+### 2. Data Protection & Cold Backup
+- **Backup Created:** `backups/pgdata_backup_before_postgres_switch` contains an exact, untouched copy of `prisma/pgdata`.
+- **Git Tracking:** Added `/backups` to `.gitignore` to ensure backups and database dumps never leak into source control.
+- **Data Integrity:** `prisma/pgdata` remains untouched and functional while preparing the migration.
+
+### 3. Codebase & Infrastructure Updates
+- **`src/lib/db.ts`:**
+  - Removed artificial exclusion of `localhost:5432/campus_placement`.
+  - Added connection pooling via `pg.Pool` and `@prisma/adapter-pg`.
+  - Added automatic schema verification on PostgreSQL Server via `SCHEMA_SQL`.
+  - Implemented graceful connection cleanup for both `pgPool` and `pglite`.
+  - Preserved transparent fallback to PGlite if `DATABASE_URL` is omitted.
+- **`scripts/migrate_to_postgres.ts`:**
+  - Created automated, idempotent migration tool that reads all 10 tables from PGlite and inserts them into PostgreSQL Server in foreign-key topological order.
+  - Automatically verifies target record counts against source records.
+
+### 4. Switch Status
+- **Status:** Ready for local PostgreSQL Server installation, database creation, and data migration. PGlite remains active until PostgreSQL Server is verified.
+
+---
+
+## Expanded Demo Dataset & Sign-In Navigation Resolution
+
+### 1. Expanded Dataset Architecture (3,280 Linked Records)
+- **Dataset Generation:** Built [scripts/seed_demo_data.ts](file:///c:/Users/Vijaykumar/OneDrive/Desktop/Campus%20Placement%20Management%20System/scripts/seed_demo_data.ts) with high-performance chunked batch inserts (`createMany({ skipDuplicates: true })`).
+- **Record Breakdown:**
+  - 200 Fictional Students (`User` + `StudentProfile`)
+  - 30 Companies across major Indian tech and core hubs
+  - 50 Placement Drives (38 Published, 6 Draft, 4 Closed, 2 Archived)
+  - 100 Recruitment Rounds (2 sequential rounds per drive)
+  - 1,000 Student Applications (5 distinct drives per student)
+  - 1,000 Application Status Logs (audit trail of status history)
+  - 300 Application Round Results
+  - 300 Student Notifications
+  - 100 Admin Audit Logs
+- **Safe Cleanup:** Built [scripts/clean_demo_data.ts](file:///c:/Users/Vijaykumar/OneDrive/Desktop/Campus%20Placement%20Management%20System/scripts/clean_demo_data.ts) to purge `demo-` records in reverse foreign-key order without touching existing data.
+
+### 2. Sign-In Navigation Diagnosis & Resolution
+- **Root Cause Identified:**
+  1. In [src/app/(auth)/sign-in/page.tsx](file:///c:/Users/Vijaykumar/OneDrive/Desktop/Campus%20Placement%20Management%20System/src/app/%28auth%29/sign-in/page.tsx), calling `router.push()` followed immediately by `router.refresh()` in Next.js Turbopack caused the client router to refresh `/sign-in` while the navigation was in-flight, leaving the submit button permanently in an `isLoading: true` ("Signing in...") spinning state.
+  2. Additionally, 3 older placement drive rows (`demo-drive-10`, `11`, `12`) created by an earlier seed run resulted in duplicate React keys, triggering reconciliation warnings.
+- **Fix Applied:**
+  - Replaced soft `router.push()` / `router.refresh()` with hard `window.location.href = destination` in both [sign-in/page.tsx](file:///c:/Users/Vijaykumar/OneDrive/Desktop/Campus%20Placement%20Management%20System/src/app/%28auth%29/sign-in/page.tsx) and [register/page.tsx](file:///c:/Users/Vijaykumar/OneDrive/Desktop/Campus%20Placement%20Management%20System/src/app/%28auth%29/register/page.tsx). This guarantees that the new HttpOnly session cookie is dispatched directly in the HTTP request headers.
+  - Cleaned the 3 duplicate older drive rows using replica session role.
+  - Verified both Admin (`admin@placement.edu`) and Student (`aarav.sharma@student.edu`) logins load dashboards and drive pages with HTTP 200 in <350ms.
+
+
