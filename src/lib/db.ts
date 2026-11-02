@@ -138,7 +138,33 @@ export async function ensureDatabaseReady(): Promise<void> {
         await state.pgPool.query(SCHEMA_SQL);
       } else if (state.pglite) {
         console.log("[Database] Step 2: awaiting pglite.waitReady...");
-        await state.pglite.waitReady;
+        try {
+          await state.pglite.waitReady;
+        } catch (pgliteInitErr: any) {
+          console.error("[Database] Corrupted or invalid database detected:", pgliteInitErr?.message || pgliteInitErr);
+          console.log("[Database] Initiating automatic self-healing recovery...");
+          try {
+            await state.pglite.close();
+          } catch {}
+          state.pglite = undefined;
+          state.prisma = undefined;
+
+          const backupPath = path.join(process.cwd(), "backups", `pgdata_corrupted_${Date.now()}`);
+          try {
+            fs.mkdirSync(path.join(process.cwd(), "backups"), { recursive: true });
+            fs.renameSync(dbDir, backupPath);
+            console.log(`[Database] Safely archived corrupted database to ${backupPath}`);
+          } catch (mvErr) {
+            console.warn("[Database] Could not archive corrupted directory:", mvErr);
+          }
+
+          fs.mkdirSync(dbDir, { recursive: true });
+          cleanStaleLock(dbDir);
+          state.pglite = new PGlite(dbDir);
+          state.prisma = createPrismaClient();
+          await state.pglite.waitReady;
+          console.log("[Database] Re-initialized clean PGlite instance successfully.");
+        }
         console.log("[Database] Step 3: ensuring schema...");
         await ensureSchema(state.pglite);
       }

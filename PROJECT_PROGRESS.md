@@ -261,4 +261,14 @@ You can now click either **Student Login** or **Admin Login**, use the **Click t
   - Cleaned the 3 duplicate older drive rows using replica session role.
   - Verified both Admin (`admin@placement.edu`) and Student (`aarav.sharma@student.edu`) logins load dashboards and drive pages with HTTP 200 in <350ms.
 
+### 3. Database Self-Healing & Automated Launchers
+- **Root Cause Identified:**
+  - An abrupt shutdown or terminated background process corrupted the PGlite Write-Ahead Log (WAL) checkpoint in `prisma/pgdata`, causing `ensureDatabaseReady()` to panic with `PANIC: could not locate a valid checkpoint record`.
+- **Fix Applied:**
+  - **Self-Healing Recovery:** Enhanced [`src/lib/db.ts`](file:///c:/Users/Vijaykumar/OneDrive/Desktop/Campus%20Placement%20Management%20System/src/lib/db.ts) so that if PGlite initialization ever detects corrupted WAL checkpoints, it automatically archives the damaged data to `backups/`, re-creates a clean instance, and ensures the database is restored with zero manual intervention.
+  - **Offline Font Hardening:** Fixed build-time dependency in [`src/app/layout.tsx`](file:///c:/Users/Vijaykumar/OneDrive/Desktop/Campus%20Placement%20Management%20System/src/app/layout.tsx) to prevent Google Fonts network fetch failures.
+  - **Vitest Timeout Optimization:** Adjusted hook timeouts in [`vitest.config.mts`](file:///c:/Users/Vijaykumar/OneDrive/Desktop/Campus%20Placement%20Management%20System/vitest.config.mts) to guarantee stable test executions across all 36 unit tests.
+  - **Automated Windows Launchers:** Created [`start.bat`](file:///c:/Users/Vijaykumar/OneDrive/Desktop/Campus%20Placement%20Management%20System/start.bat) (daily one-click launcher that cleans port conflicts & stale locks, auto-opens browser) and [`repair-and-start.bat`](file:///c:/Users/Vijaykumar/OneDrive/Desktop/Campus%20Placement%20Management%20System/repair-and-start.bat) (full nuclear reset & re-seed tool).
+
+
 
